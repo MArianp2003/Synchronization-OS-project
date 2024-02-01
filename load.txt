@@ -1,2 +1,7 @@
-m1
-m2
+writer1 message0
+writer2 message0
+writer3 message0
+writer2 message1
+writer1 message1
+writer3 message1
+writer3 message2

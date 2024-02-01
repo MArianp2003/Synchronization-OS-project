@@ -9,7 +9,7 @@ class BoundedBuffer:
         self.buffer = [0 for _ in range(size)]
         self.read_index = 0
         self.write_index = 0
-        self.lock = threading.Semaphore(1)
+        self.mutex = threading.Semaphore(1)
         self.empty = threading.Semaphore(self.size)
         self.full = threading.Semaphore(0)
 
@@ -20,19 +20,19 @@ class BoundedBuffer:
         self.capacity -= 1
         self.filled += 1
 
-    def check_write(self, message, nb):
+    def check_write(self, message, nb=1):
         if nb:
-            self.lock.acquire()
+            self.mutex.acquire()
             if self.capacity == 0:
                 print('There is not enough space to write')
             else:
                 self.write(message)
-            self.lock.release()
+            self.mutex.release()
         else:
             self.empty.acquire()
-            self.lock.acquire()
+            self.mutex.acquire()
             self.write(message)
-            self.lock.release()
+            self.mutex.release()
             self.full.release()
 
 
@@ -48,21 +48,21 @@ class BoundedBuffer:
 
     def check_read(self, reader, nb):
         if nb:
-            self.lock.acquire()
+            self.mutex.acquire()
             if self.filled == 0:
                 print('There is no item in the buffer')
             else:
                 self.read(reader)
-            self.lock.release()
+            self.mutex.release()
         else:
             self.full.acquire()
-            self.lock.acquire()
+            self.mutex.acquire()
             self.read(reader)
-            self.lock.release()
+            self.mutex.release()
             self.empty.release()
         
     def stats(self):
-        self.lock.acquire()
+        self.mutex.acquire()
         print('Number of messages in the buffer:', self.filled)
         total = ''
         for message in self.buffer:
@@ -71,21 +71,19 @@ class BoundedBuffer:
         print('Total length of messages:', len(total))
         memory_usage = psutil.Process().memory_info().rss / (1024 ** 2), 'MB'
         print('Total memory usage:', memory_usage)
-        self.lock.release()
+        self.mutex.release()
         return (self.size, len(total), memory_usage)
 
 def send(thread_id, buffer: BoundedBuffer, times):
     for i in range(times):
         rc = random.choice([0, 1])
-        rc = 1
         buffer.check_write(f'writer{thread_id} message{i}', nb=bool(rc))
         time.sleep(0.1)
 
 def get(thread_id, buffer: BoundedBuffer, times):
     for _ in range(times):
         rc = random.choice([0, 1])
-        rc = 1
-        buffer.check_read('reader' + str(thread_id) , nb=bool(rc))
+        buffer.check_read(f'reader{str(thread_id)}' , nb=bool(rc))
         time.sleep(0.1)
         
 def get_stats(times, buffer):
